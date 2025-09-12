@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ChessMate</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-black text-white flex items-center justify-center h-screen">
+  <div class="w-full max-w-lg p-8 bg-gray-800 rounded-2xl shadow-2xl">
+    
+    <h1 class="text-4xl font-bold text-center mb-8">♟ Chess Mate</h1>
+
+    <!-- Create Game -->
+    <div class="flex justify-center mb-6">
+      <button id="createGame" 
+        class="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg shadow-lg transition">
+        ➕ Create New Game
+      </button>
+    </div>
+
+    <!-- Join Game -->
+    <div class="flex space-x-2 justify-center mb-8">
+      <input id="joinInput" type="text" placeholder="Enter Room ID" 
+        class="px-3 py-2 text-black rounded-lg w-2/3"/>
+      <button id="joinGame" 
+        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition">
+        Join
+      </button>
+    </div>
+
+    <!-- Play with Bot -->
+    <div class="mb-8 text-center">
+      <h2 class="text-2xl font-semibold mb-4">🤖 Play with Bot</h2>
+      <div class="flex justify-center space-x-4">
+        <button class="botBtn px-4 py-2 bg-yellow-500 hover:bg-yellow-600 rounded-lg transition" data-difficulty="easy">
+          Easy
+        </button>
+        <button class="botBtn px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg transition" data-difficulty="medium">
+          Medium
+        </button>
+        <button class="botBtn px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition" data-difficulty="hard">
+          Hard
+        </button>
+      </div>
+    </div>
+
+    <!-- Watch Games -->
+    <div class="mt-6">
+      <h2 class="text-2xl font-semibold mb-4 text-center">📺 Watch Ongoing Games</h2>
+      <ul id="gameList" class="space-y-3 text-center"></ul>
+    </div>
+
+  </div>
+
+  <script>
+    // Create Game
+    document.getElementById("createGame").addEventListener("click", () => {
+      const roomId = "game_" + Math.random().toString(36).substring(2, 9);
+      window.location.href = `/game/${roomId}?roomId=${roomId}`;
+    });
+
+    // Join Game
+    document.getElementById("joinGame").addEventListener("click", () => {
+      const roomId = document.getElementById("joinInput").value.trim();
+      if (roomId) {
+        window.location.href = `/game/${roomId}?roomId=${roomId}`;
+      }
+    });
+
+    // Play with Bot
+    document.querySelectorAll(".botBtn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const difficulty = btn.dataset.difficulty;
+        const roomId = "bot_" + Math.random().toString(36).substring(2, 9);
+        // Pass difficulty as query param
+        window.location.href = `/game/${roomId}?roomId=${roomId}&botType=${difficulty}`;
+      });
+    });
+
+    // Fetch Ongoing Games
+    function loadGames() {
+      fetch("/games")
+        .then(res => res.json())
+        .then(data => {
+          const list = document.getElementById("gameList");
+          list.innerHTML = "";
+
+          if (data.length === 0) {
+            list.innerHTML = `<li class="text-gray-400">No active games right now</li>`;
+          } else {
+            data.forEach(id => {
+              const li = document.createElement("li");
+              li.innerHTML = `
+                <a href="/game/${id}?roomId=${id}" 
+                   class="block px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition">
+                   🎮 ${id}
+                </a>`;
+              list.appendChild(li);
+            });
+          }
+        });
+    }
+
+    // Refresh game list every 5s
+    loadGames();
+    setInterval(loadGames, 5000);
+  </script>
+</body>
+</html>

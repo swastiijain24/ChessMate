@@ -1,10 +1,29 @@
 const socket = io();
 const chess = new Chess();
-const boardElement = document.querySelector('.chessboard');
+import { createRandomBotMove, createStockfishBot } from "./botService.js";
+
+let boardElement;
+document.addEventListener('DOMContentLoaded', () => {
+    boardElement = document.querySelector('.chessboard');
+    renderBoard(); // render after DOM is ready
+});
+
+const board = chess.board();
+console.log(board);
 
 let draggedPiece = null;
 let sourceSquare = null;
 let playerRole = null;
+
+const urlParams = new URLSearchParams(window.location.search);
+const botType = urlParams.get("botType");
+let bot=null;
+if(botType==="hard"){
+    bot = createStockfishBot();
+}
+
+const roomId = urlParams.get("roomId"); 
+socket.emit("joinGame", roomId);
 
 const renderBoard = () => {
     const board = chess.board();
@@ -15,7 +34,7 @@ const renderBoard = () => {
             squareElement.classList.add(
                 "square",
                 (rowindex + squareindex) % 2 === 0 ? "light" : "dark"
-            )
+            );
 
             squareElement.dataset.row = rowindex;
             squareElement.dataset.col = squareindex;
@@ -32,90 +51,106 @@ const renderBoard = () => {
                 pieceElement.addEventListener('dragstart', (e) => {
                     if (pieceElement.draggable) {
                         draggedPiece = pieceElement;
-                        sourceSquare = { row: rowindex, col: squareindex }
+                        sourceSquare = { row: rowindex, col: squareindex };
                         e.dataTransfer.setData('text/plain', "");
                     }
                 });
 
-                pieceElement.addEventListener('dragend', (e) =>{
+                pieceElement.addEventListener('dragend', () => {
                     draggedPiece = null;
                     sourceSquare = null;
-                })
+                });
 
                 squareElement.appendChild(pieceElement);
             }
 
-            squareElement.addEventListener('dragover', function(e) {
+            squareElement.addEventListener('dragover', (e) => {
                 e.preventDefault();
             });
 
-            squareElement.addEventListener('drop', function(e){
+            squareElement.addEventListener('drop', (e) => {
                 e.preventDefault();
-                if(draggedPiece){
+                if (draggedPiece) {
                     const targetSource = {
                         row: parseInt(squareElement.dataset.row),
                         col: parseInt(squareElement.dataset.col),
                     };
-
                     handleMove(sourceSquare, targetSource);
                 }
-            })
-            boardElement.appendChild(squareElement); 
+            });
+
+            boardElement.appendChild(squareElement);
         });
     });
 
-    if(playerRole === 'b'){
+    if (playerRole === 'b') {
         boardElement.classList.add('flipped');
     } else {
         boardElement.classList.remove('flipped');
     }
 };
 
-const handleMove = (source , target) => {
+const handleMove = async (source, target) => {
     const move = {
-        from: `${String.fromCharCode(97+source.col)}${8 - source.row}`, //since rows are from 8 to 1
-        to : `${String.fromCharCode(97+target.col)}${8 - target.row}`,
-        promotion : 'q',
+        from: `${String.fromCharCode(97 + source.col)}${8 - source.row}`,
+        to: `${String.fromCharCode(97 + target.col)}${8 - target.row}`,
+        promotion: 'q',
     };
 
-    socket.emit('move', move);
-}
+    const result = chess.move(move);
+
+    if (result) {
+        socket.emit('move', { roomId, move });
+        renderBoard();
+
+        if (botType) {
+            // Wait a bit for UX
+            await new Promise(res => setTimeout(res, 300));
+
+            if (botType === "easy" || botType === "medium") {
+                const botMove = createRandomBotMove(chess);
+                if (botMove) {
+                    chess.move(botMove);
+                    renderBoard();
+                }
+            } else if (botType === "hard" && bot) {
+                const botMove = await bot.getBestMove(chess.fen());
+                console.log("bot plays", botMove);
+                
+                if (botMove) {
+                    chess.move(botMove, {sloppy: true});
+                    renderBoard();
+                }
+            }
+        }
+    }
+};
+
 
 const getPieceUnicode = (piece) => {
     const unicodePieces = {
-        K: "♔",  // King
-        Q: "♕",  // Queen
-        R: "♖",  // Rook
-        B: "♗",  // Bishop
-        N: "♘",  // Knight
-        P: "♙",  // Pawn
-        k: "♚",  // King
-        q: "♛",  // Queen
-        r: "♜",  // Rook
-        b: "♝",  // Bishop
-        n: "♞",  // Knight
-        p: "♟"   // Pawn
-    }
-
+        K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙",
+        k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟"
+    };
     return unicodePieces[piece.type] || "";
-}
+};
 
-socket.on('playerRole', function(role){
+socket.on('playerRole', (role) => {
     playerRole = role;
     renderBoard();
 });
 
-socket.on('spectatorRole', function(){
+socket.on('spectatorRole', () => {
     playerRole = null;
     renderBoard();
 });
 
-socket.on('boardState', function(fen){
+socket.on('boardState', (fen) => {
     chess.load(fen);
     renderBoard();
 });
 
-socket.on('move', function(move){
+socket.on('move', (move) => {
     chess.move(move);
     renderBoard();
 });

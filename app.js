@@ -13,7 +13,7 @@ const games = {};
 app.set('view engine', 'ejs');
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get('/lobby', (req, res) => {
+app.get('/', (req, res) => {
     res.render("lobby", { title: "Chess" });
 });
 
@@ -26,9 +26,9 @@ app.get('/game/:roomId', (req, res) => {
     });
 });
 
-app.get('/lobby', (req, res) => {
-    res.render("lobby");
-});
+// app.get('/lobby', (req, res) => {
+//     res.render("lobby");
+// });
 
 app.get('/games', (req, res) => {
     res.json(Object.keys(games));
